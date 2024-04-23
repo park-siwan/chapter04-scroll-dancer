@@ -32,7 +32,8 @@ export const Dancer = () => {
   const hemisphereLightRef = useRef(null);
   const { scene, animations } = useGLTF('/models/dancer.glb');
   const texture = useTexture('/texture/5.png');
-
+  const [currentAnimation, setCurrentAnimation] = useState('wave');
+  const [rotateFinished, setRotateFinished] = useState(false);
   const { actions } = useAnimations(animations, dancerRef);
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export const Dancer = () => {
     }, 8000);
     return () => {
       clearTimeout(timeout);
+      actions[currentAnimation]?.reset().fadeOut(0.5).stop();
     };
   }, [actions, currentAnimation]);
 
@@ -89,9 +91,6 @@ export const Dancer = () => {
     );
     gsap.fromTo(three.camera.rotation, { z: Math.PI }, { duration: 2.5, z: 0 });
   }, [isEntered, three.camera.position, three.camera.rotation]);
-
-  const [currentAnimation, setCurrentAnimation] = useState('wave');
-  const [rotateFinished, setRotateFinished] = useState(false);
 
   const { positions } = useMemo(() => {
     const count = 500;
@@ -119,7 +118,37 @@ export const Dancer = () => {
   useEffect(() => {
     if (!isEntered) return;
     if (!dancerRef.current) return;
+    const pivot = new THREE.Group();
+    pivot.position.copy(dancerRef.current.position);
+    pivot.add(three.camera);
+    three.scene.add(pivot);
     timeline = gsap.timeline();
+    gsap.fromTo(
+      colors,
+      { boxMaterialColor: '#0C0400' },
+      { duration: 2.5, boxMaterialColor: '#DC4F00' },
+    );
+    gsap.to(starGroupRef01.current, {
+      yoyo: true,
+      duration: 2,
+      repeat: -1, //-1은 무한반복
+      ease: 'linear',
+      size: 0.05,
+    });
+    gsap.to(starGroupRef02.current, {
+      yoyo: true,
+      duration: 3,
+      repeat: -1,
+      ease: 'linear',
+      size: 0.05,
+    });
+    gsap.to(starGroupRef03.current, {
+      yoyo: true,
+      duration: 4,
+      repeat: -1,
+      ease: 'linear',
+      size: 0.05,
+    });
     timeline
       .from(
         dancerRef.current.rotation,
@@ -146,6 +175,27 @@ export const Dancer = () => {
         },
         '<',
       )
+      .to(
+        colors,
+        {
+          duration: 10,
+          boxMaterialColor: '#0c0400',
+        },
+        '<',
+      )
+      .to(pivot.rotation, {
+        duration: 10,
+        y: Math.PI,
+      })
+      .to(
+        three.camera.position,
+        {
+          duration: 10,
+          x: -4,
+          z: 12,
+        },
+        '<',
+      )
       .to(three.camera.position, {
         duration: 10,
         x: 0,
@@ -155,8 +205,33 @@ export const Dancer = () => {
         duration: 10,
         x: 0,
         z: 16,
+        onUpdate: () => {
+          setRotateFinished(false);
+        },
+      })
+      .to(hemisphereLightRef.current, {
+        duration: 5,
+        intensity: 30,
+      })
+      .to(
+        pivot.rotation,
+        {
+          duration: 15,
+          y: Math.PI * 4,
+          onUpdate: () => {
+            setRotateFinished(true);
+          },
+        },
+        '<',
+      )
+      .to(colors, {
+        duration: 15,
+        boxMaterialColor: '#DC4F00',
       });
-  }, [isEntered, three.camera.position]);
+    return () => {
+      three.scene.remove(pivot);
+    };
+  }, [isEntered, three.camera, three.camera.position, three.scene]);
 
   if (isEntered) {
     return (
